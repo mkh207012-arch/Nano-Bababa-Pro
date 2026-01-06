@@ -3,7 +3,7 @@ import { GenerationSettings, ReferenceImage, StudioMode, GridCount } from '../ty
 import { ASPECT_RATIOS, CONCEPT_GROUPS, RESOLUTIONS, GRID_OPTIONS, GRID_SIZING_OPTIONS, FASHION_POSES, CAMERA_ANGLES } from '../constants';
 import { LensSelector } from './LensSelector';
 import { Button } from './Button';
-import { Sparkles, Ratio, Zap, Monitor, MapPin, Camera, User, Shirt, Plus, X, LayoutTemplate, Grid, Layers, ScanEye, MessageSquarePlus, Scissors } from 'lucide-react';
+import { Sparkles, Ratio, Zap, Monitor, MapPin, Camera, User, Shirt, Plus, X, LayoutTemplate, Grid, Layers, ScanEye, MessageSquarePlus, Scissors, Settings } from 'lucide-react';
 
 interface ControlPanelProps {
   settings: GenerationSettings;
@@ -25,6 +25,9 @@ interface ControlPanelProps {
   
   // Extraction Props
   onExtractOutfit?: () => void;
+  
+  // Config
+  onOpenConfig?: () => void;
 }
 
 export const ControlPanel: React.FC<ControlPanelProps> = ({ 
@@ -42,7 +45,8 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
   onToggleClothing,
   onRemoveModel,
   onRemoveClothing,
-  onExtractOutfit
+  onExtractOutfit,
+  onOpenConfig
 }) => {
   
   const handleLensChange = (lensId: string) => {
@@ -181,10 +185,21 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
       
       {/* App Header */}
       <div className="p-6 pb-2">
-        <h1 className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-rose-400 to-purple-400 tracking-tight">
-          K-아이돌 뷰티 스튜디오
-        </h1>
-        <p className="text-gray-500 text-sm mt-1 mb-6">Nano Banana PRO 기반</p>
+        <div className="flex justify-between items-start mb-1">
+          <h1 className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-rose-400 to-purple-400 tracking-tight">
+            K-아이돌 뷰티 스튜디오
+          </h1>
+          {onOpenConfig && (
+            <button 
+              onClick={onOpenConfig}
+              className="p-2 text-gray-500 hover:text-rose-400 transition-colors rounded-lg hover:bg-gray-800"
+              title="API Key 설정"
+            >
+              <Settings size={20} />
+            </button>
+          )}
+        </div>
+        <p className="text-gray-500 text-sm mb-6">Nano Banana PRO 기반</p>
 
         {/* Mode Switcher Tabs */}
         <div className="flex bg-gray-800/50 p-1 rounded-xl mb-4">

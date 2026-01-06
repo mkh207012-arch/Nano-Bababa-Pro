@@ -11,17 +11,63 @@ declare global {
 }
 
 const MODEL_NAME = "gemini-3-pro-image-preview";
+const LOCAL_STORAGE_KEY = "k_beauty_studio_api_key_v1";
+
+// --- API Key Management ---
 
 /**
- * Ensures a valid API key is selected for paid models.
+ * Retrieves the API key from Local Storage (decrypted) or falls back to env var.
  */
-async function ensureApiKey(): Promise<void> {
-  if (window.aistudio) {
-    const hasKey = await window.aistudio.hasSelectedApiKey();
-    if (!hasKey) {
-      await window.aistudio.openSelectKey();
+export const getApiKey = (): string | null => {
+  try {
+    const stored = localStorage.getItem(LOCAL_STORAGE_KEY);
+    if (stored) {
+      return atob(stored); // Simple Base64 decode
     }
+  } catch (e) {
+    console.error("Failed to retrieve API key", e);
   }
+  return process.env.API_KEY || null;
+};
+
+/**
+ * Encrypts (Obfuscates) and saves the API key to Local Storage.
+ */
+export const saveApiKey = (key: string) => {
+  if (!key) {
+    localStorage.removeItem(LOCAL_STORAGE_KEY);
+    return;
+  }
+  localStorage.setItem(LOCAL_STORAGE_KEY, btoa(key)); // Simple Base64 encode
+};
+
+/**
+ * Validates the API Key by making a lightweight call.
+ */
+export const validateConnection = async (key: string): Promise<boolean> => {
+  try {
+    const ai = new GoogleGenAI({ apiKey: key });
+    // Use a lightweight model for validation
+    await ai.models.generateContent({
+      model: "gemini-2.5-flash-latest",
+      contents: "ping",
+    });
+    return true;
+  } catch (error) {
+    console.error("Connection validation failed:", error);
+    return false;
+  }
+};
+
+/**
+ * Ensures a valid API key is available.
+ */
+function getClient(): GoogleGenAI {
+  const apiKey = getApiKey();
+  if (!apiKey) {
+    throw new Error("API Key가 설정되지 않았습니다. 설정 버튼을 눌러 API Key를 등록해주세요.");
+  }
+  return new GoogleGenAI({ apiKey });
 }
 
 /**
@@ -58,7 +104,7 @@ function getBaseStylePrompt(lens: LensConfig): string {
   return `
     High-end commercial fashion photography.
     Luxury fashion magazine editorial style.
-    K-POP idol aesthetic, sophisticated and trendy.
+    Sophisticated, modern, and trendy aesthetic.
     Flawless skin texture, vivid colors, professional studio lighting.
     Bright and lively atmosphere, photo-realistic 8K resolution.
     Ultra-detailed, sharp focus on eyes and face.
@@ -67,7 +113,7 @@ function getBaseStylePrompt(lens: LensConfig): string {
     Subject details:
     Professional female fashion model.
     Elegant and confident pose.
-    Charming and attractive face, perfect makeup styling.
+    Charming and attractive face, professional makeup styling.
     Detailed facial features, expressive eyes.
 
     Camera: Canon EOS R5.
@@ -174,8 +220,7 @@ async function handleResponse(response: any): Promise<string> {
 }
 
 export const generateImage = async (settings: GenerationSettings): Promise<string> => {
-  await ensureApiKey();
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  const ai = getClient();
   const selectedLens = LENSES.find(l => l.id === settings.lensId) || LENSES[0];
   const prompt = buildPrompt(selectedLens, settings);
 
@@ -195,10 +240,6 @@ export const generateImage = async (settings: GenerationSettings): Promise<strin
     return await handleResponse(response);
   } catch (error: any) {
     console.error("Image generation error:", error);
-    if (error.message?.includes("Requested entity was not found") && window.aistudio) {
-       await window.aistudio.openSelectKey();
-       throw new Error("API Key invalid or project not found. Please select a valid project.");
-    }
     throw error;
   }
 };
@@ -208,8 +249,7 @@ export const editImage = async (
   editPrompt: string, 
   settings: GenerationSettings
 ): Promise<string> => {
-  await ensureApiKey();
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  const ai = getClient();
   const { mimeType, data } = parseDataUrl(originalImageUrl);
   const selectedLens = LENSES.find(l => l.id === settings.lensId) || LENSES[0];
   const styleContext = getBaseStylePrompt(selectedLens);
@@ -250,10 +290,6 @@ export const editImage = async (
     return await handleResponse(response);
   } catch (error: any) {
     console.error("Image edit error:", error);
-    if (error.message?.includes("Requested entity was not found") && window.aistudio) {
-       await window.aistudio.openSelectKey();
-       throw new Error("API Key invalid or project not found. Please select a valid project.");
-    }
     throw error;
   }
 };
@@ -263,8 +299,7 @@ export const generateConsistentImage = async (
   newContextPrompt: string,
   settings: GenerationSettings
 ): Promise<string> => {
-  await ensureApiKey();
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  const ai = getClient();
   const { mimeType, data } = parseDataUrl(referenceImageUrl);
   const selectedLens = LENSES.find(l => l.id === settings.lensId) || LENSES[0];
   const styleContext = getBaseStylePrompt(selectedLens);
@@ -275,8 +310,8 @@ export const generateConsistentImage = async (
     ${styleContext}
 
     TASK:
-    The provided image is the Reference Model.
-    Generate a COMPLETELY NEW photo (or photo set) of this consistent character (face, hairstyle, physique).
+    The provided image is a Reference for a fashion model.
+    Generate a NEW high-quality fashion photo featuring a model with a similar look and style (Face, Hairstyle).
     
     LAYOUT & COMPOSITION:
     ${gridPrompt}
@@ -287,8 +322,8 @@ export const generateConsistentImage = async (
     ${priorityInstructions}
     
     CRITICAL INSTRUCTIONS:
-    1. Maintain consistent character identity (Face, Hair, Physique) with the reference image.
-    2. Change the Pose, Angle, and Background according to the "New Scene" and "Layout" requirements.
+    1. Create a consistent character look inspired by the reference.
+    2. Change the Pose, Angle, and Background according to the requirements.
     3. Maintain the "Commercial Beauty Pictorial" aesthetic.
   `;
 
@@ -313,10 +348,6 @@ export const generateConsistentImage = async (
     return await handleResponse(response);
   } catch (error: any) {
     console.error("Consistent generation error:", error);
-    if (error.message?.includes("Requested entity was not found") && window.aistudio) {
-       await window.aistudio.openSelectKey();
-       throw new Error("API Key invalid or project not found. Please select a valid project.");
-    }
     throw error;
   }
 };
@@ -326,8 +357,7 @@ export const generateFromReferences = async (
   clothingRefs: ReferenceImage[],
   settings: GenerationSettings
 ): Promise<string> => {
-  await ensureApiKey();
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  const ai = getClient();
   const selectedLens = LENSES.find(l => l.id === settings.lensId) || LENSES[0];
   const styleContext = getBaseStylePrompt(selectedLens);
   const gridPrompt = getGridPrompt(settings);
@@ -363,12 +393,12 @@ export const generateFromReferences = async (
   if (selectedClothingRefs.length > 0) {
      clothingInputDesc = `- The NEXT ${selectedClothingRefs.length} images are the 'CLOTHING REFERENCE' (Target Outfit).`;
      clothingInstruction = `
-     2. OUTFIT REPLACEMENT (VIRTUAL TRY-ON):
-        - Disregard the clothing worn in the 'IDENTITY REFERENCE' images.
+     2. OUTFIT REPLACEMENT:
+        - Disregard the original clothing.
         - Dress the model in the items from the 'CLOTHING REFERENCE'.
-        - Accurately replicate the fabric, color, texture, and silhouette of the reference clothing.
-        - Ensure the clothing fits the model's body shape naturally.
-        (Note: ${settings.clothingPrompt ? `Additional Styling Details: "${settings.clothingPrompt}"` : "Follow the clothing reference exactly."})
+        - Accurately replicate the fabric, color, texture, and silhouette.
+        - Ensure the clothing fits naturally.
+        (Note: ${settings.clothingPrompt ? `Additional Styling Details: "${settings.clothingPrompt}"` : "Follow the clothing reference."})
      `;
   } else {
      clothingInputDesc = `- No specific clothing reference images provided.`;
@@ -383,17 +413,17 @@ export const generateFromReferences = async (
   const promptText = `
     ${styleContext}
 
-    TASK: Fashion Editorial with Consistent Character.
+    TASK: Fashion Editorial Creation.
 
     INPUT REFERENCES:
-    - Group A: First ${selectedModelRefs.length} images = Character Reference (Face, Hair, Body).
+    - Group A: First ${selectedModelRefs.length} images = Model Visual Reference.
     ${clothingInputDesc}
 
     INSTRUCTIONS:
     Generate a high-end commercial fashion photo.
-    1. CHARACTER: Generate a character that looks like the person in Group A. Maintain consistency in facial features, hairstyle, and body proportions.
+    1. MODEL: Create a professional fashion model with the visual characteristics (Face, Hair) of the person in Group A.
     ${clothingInstruction}
-    3. COMPOSITION: Seamlessly integrate the character and outfit.
+    3. COMPOSITION: Seamlessly integrate the model and outfit into the scene.
 
     SCENE & COMPOSITION:
     Concept/Location: ${effectiveConcept}
@@ -405,6 +435,7 @@ export const generateFromReferences = async (
     - Photorealistic, 8K resolution.
     - Professional fashion lighting.
     - Natural skin texture.
+    - Artistic fashion photography.
   `;
 
   parts.push({ text: promptText });
@@ -425,17 +456,12 @@ export const generateFromReferences = async (
     return await handleResponse(response);
   } catch (error: any) {
     console.error("Reference generation error:", error);
-    if (error.message?.includes("Requested entity was not found") && window.aistudio) {
-       await window.aistudio.openSelectKey();
-       throw new Error("API Key invalid or project not found. Please select a valid project.");
-    }
     throw error;
   }
 };
 
 export const extractOutfit = async (imageBase64: string): Promise<string> => {
-  await ensureApiKey();
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  const ai = getClient();
   const { mimeType, data } = parseDataUrl(imageBase64);
 
   const prompt = `
@@ -476,17 +502,12 @@ export const extractOutfit = async (imageBase64: string): Promise<string> => {
     return await handleResponse(response);
   } catch (error: any) {
     console.error("Outfit extraction error:", error);
-    if (error.message?.includes("Requested entity was not found") && window.aistudio) {
-       await window.aistudio.openSelectKey();
-       throw new Error("API Key invalid. Please select a project.");
-    }
     throw error;
   }
 };
 
 export const editOutfit = async (imageBase64: string, editPrompt: string): Promise<string> => {
-  await ensureApiKey();
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  const ai = getClient();
   const { mimeType, data } = parseDataUrl(imageBase64);
 
   const prompt = `
@@ -520,10 +541,6 @@ export const editOutfit = async (imageBase64: string, editPrompt: string): Promi
     return await handleResponse(response);
   } catch (error: any) {
     console.error("Outfit edit error:", error);
-    if (error.message?.includes("Requested entity was not found") && window.aistudio) {
-       await window.aistudio.openSelectKey();
-       throw new Error("API Key invalid. Please select a project.");
-    }
     throw error;
   }
 };

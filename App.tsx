@@ -6,6 +6,7 @@ import { generateImage, editImage, generateConsistentImage, generateFromReferenc
 import { CONCEPT_GROUPS, FASHION_POSES, CAMERA_ANGLES } from './constants';
 import { AlertCircle } from 'lucide-react';
 import { OutfitExtractor } from './components/OutfitExtractor';
+import { ApiKeyConfig } from './components/ApiKeyConfig';
 
 const App: React.FC = () => {
   const [settings, setSettings] = useState<GenerationSettings>({
@@ -45,6 +46,9 @@ const App: React.FC = () => {
   const [showExtractor, setShowExtractor] = useState(false);
   const [extractorSource, setExtractorSource] = useState<string | null>(null);
   const [extractorResult, setExtractorResult] = useState<string | null>(null);
+
+  // API Config State
+  const [showConfig, setShowConfig] = useState(false);
 
   const addToHistory = (url: string, prompt: string) => {
     setHistory(prev => [{ url, prompt }, ...prev]);
@@ -216,12 +220,15 @@ const App: React.FC = () => {
         
         // Extraction
         onExtractOutfit={handleExtractOutfit}
+        
+        // Config
+        onOpenConfig={() => setShowConfig(true)}
       />
 
       {/* Main Preview Area */}
       <main className="flex-1 relative flex flex-col h-full">
         {error && (
-          <div className="absolute top-4 left-4 right-4 z-50 bg-red-900/90 border border-red-700 text-red-200 px-4 py-3 rounded-lg flex items-center gap-3 shadow-lg backdrop-blur-md">
+          <div className="absolute top-4 left-4 right-4 z-50 bg-red-900/90 border border-red-700 text-red-200 px-4 py-3 rounded-lg flex items-center gap-3 shadow-lg backdrop-blur-md animate-in fade-in slide-in-from-top-2">
             <AlertCircle size={20} />
             <span className="text-sm font-medium">{error}</span>
             <button onClick={() => setError(null)} className="ml-auto text-red-300 hover:text-white">&times;</button>
@@ -237,12 +244,10 @@ const App: React.FC = () => {
           onSelectImage={(img) => setImageUrl(img.url)}
         />
         
-        {/* API Key Notice for First Time Users (Visual Aid only, logic is in service) */}
-        {!process.env.API_KEY && !window.aistudio && (
-           <div className="absolute bottom-4 left-4 z-30 text-[10px] text-gray-600">
-             * Veo/Pro 모델을 사용하려면 결제 계정이 연결된 Google Cloud 프로젝트가 필요합니다.
-           </div>
-        )}
+        {/* Notice for First Time Users */}
+        <div className="absolute bottom-4 left-4 z-30 text-[10px] text-gray-600">
+           * K-아이돌 뷰티 스튜디오 (Nano Banana PRO)
+        </div>
       </main>
 
       {/* Extraction Modal */}
@@ -253,6 +258,11 @@ const App: React.FC = () => {
           onClose={() => setShowExtractor(false)}
           onAddToReferences={handleAddExtractedToRef}
         />
+      )}
+
+      {/* API Key Config Modal */}
+      {showConfig && (
+        <ApiKeyConfig onClose={() => setShowConfig(false)} />
       )}
     </div>
   );
