@@ -47,8 +47,8 @@ const App: React.FC = () => {
   const [extractorSource, setExtractorSource] = useState<string | null>(null);
   const [extractorResult, setExtractorResult] = useState<string | null>(null);
 
-  // API Config State
-  const [showConfig, setShowConfig] = useState(false);
+  // API Config State - Always open on load
+  const [showConfig, setShowConfig] = useState(true);
 
   const addToHistory = (url: string, prompt: string) => {
     setHistory(prev => [{ url, prompt }, ...prev]);
